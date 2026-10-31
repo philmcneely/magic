@@ -14,6 +14,7 @@ for Magic. More specifically it provides the following slots.
 * __[tasks.delete]__ - Deletes a task
 * __[tasks.schedule]__ - Schedules an existing task
 * __[tasks.schedule.delete]__ - Deletes an existing schedule
+* __[tasks.scheduler.start]__ - Starts the task scheduler
 
 ## How to use [tasks.create]
 
@@ -367,6 +368,11 @@ In the above **[repeat]** argument, the `ext` parts informs the scheduler that y
 custom repetition pattern, the `custom-pattern` parts resolves to your `IRepetitionPattern` create function,
 and the _"some-arguments-here"_ parts will be passed into your above `ExtPattern` constructor allowing
 you to parametrize your pattern any ways you see fit.
+
+### How to use [tasks.scheduler.start]
+
+Notice, this slot is not intended for being directly invoked by your code, but internally used by Magic
+after the system has been setup.
 
 ### Task scheduler internals
 

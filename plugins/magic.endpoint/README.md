@@ -320,7 +320,7 @@ files in your _"/etc/www/"_ folder, you can see this logic in action.
    return:x:-
 ```
 
-The above will substitute your `{{*/.calculate}}`parts with the result of invoking your **[.calculate]** lambda
+The above will substitute your `{{*/.calculate}}` parts with the result of invoking your **[.calculate]** lambda
 object, resulting in 4. To understand how this works, you need to read about the **[io.file.mixin]** slot in
 the _"magic.lambda.io"_ project, and realise that the above will actually transform to the following as the
 mixin logic is executed.
@@ -457,6 +457,8 @@ slots.
 * __[request.scheme]__ - Returns the scheme associated with the request
 * __[response.headers.set]__ - Adds an HTTP header to the response object
 * __[mime.add]__ - Associates a file extension with a MIME type, only relevant for the `HttpFileExecutorAsync` resolver
+* __[mime.list]__ - Lists registered MIME type mappings
+* __[request.verb]__ - Returns the HTTP verb of the current invocation
 
 ### Hyperlambda and cookies
 
@@ -487,3 +489,14 @@ mime.add:py
 Then later when the endpoint resolver is returning files ending with _".py"_, it will return these with
 a `Content-Type` of _"application/python"_.
 
+
+### How to use [mime.list]
+
+This slot lists all MIME type mappings registered in the current installation, including those added with **[mime.add]**.
+It returns one child node for each mapping, where the name of the child node is the file extension and its value is the MIME type.
+It takes no arguments.
+
+### How to use [request.verb]
+
+This slot returns the HTTP verb (e.g. _"get"_ or _"post"_) of the current incoming request as the value of the slot's node.
+It takes no arguments, and is only meaningful when invoked from within an HTTP request, such as inside of a Hyperlambda endpoint.

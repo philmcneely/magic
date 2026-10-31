@@ -8,10 +8,12 @@ This project provides file/folder slots for Magic. More specifically, it provide
 * __[io.folder.exists]__ - Returns true if folder exists, otherwise false
 * __[io.folder.delete]__ - Deletes a folder on disc on your server
 * __[io.folder.list]__ - Lists all folders within another source folder
+* __[io.folder.list-recursively]__ - Lists all folders within another source folder, including all nested folders
 * __[io.folder.move]__ - Moves a folder to its specified destination
 * __[io.folder.copy]__ - Copies a folder to its specified destination
 * __[io.file.load]__ - Loads a file from disc on your server
 * __[load-file]__ - Alias for **[io.file.load]**
+* __[io.file.load-recursively]__ - Loads all files in a folder, including all nested folders, returning each file's name and content
 * __[io.file.load.binary]__ - Loads a file from disc on your server as a byte array
 * __[io.file.save]__ - Saves a file on disc on your server
 * __[save-file]__ - Alias for **[io.file.save]**
@@ -23,6 +25,7 @@ This project provides file/folder slots for Magic. More specifically, it provide
 * __[io.file.execute]__ - Executes a Hyperlambda file on your server.
 * __[execute-file]__ - Alias for **[io.file.execute]** except it will forward evaluate all descendant nodes using **[unwrap]**
 * __[io.file.list]__ - List files in the specified folder on your server.
+* __[io.file.list-recursively]__ - List files in the specified folder on your server, including all nested folders.
 * __[io.file.move]__ - Moves a file on your server.
 * __[io.file.unzip]__ - Unzips a file on your server.
 * __[io.stream.open-file]__ - Opens the specified filename and returns it as a stream
@@ -30,6 +33,7 @@ This project provides file/folder slots for Magic. More specifically, it provide
 * __[io.stream.read]__ - Reads all content from the specified stream as a byte array
 * __[io.stream.close]__ - Closes a previously opened stream
 * __[io.content.zip-stream]__ - Creates a ZipStream for you, without touching the file system
+* __[io.path.get-folder]__ - Returns the folder part of the specified path
 * __[.io.folder.root]__ - Returns the root folder of your system. (private C# slot)
 * __[io.file.mixin]__ - Allows you to invoke lambda objects from a file and substitute content dynamically in your original file
 * __[io.file.search]__ - Searches file content and returns filename + line numbers
@@ -81,6 +85,15 @@ you pass in **[display-hidden]** and set its value to boolean _"true"_.
 io.folder.list:/misc/
 ```
 
+### How to use [io.folder.list-recursively]
+
+This slot works like **[io.folder.list]**, except it also returns all folders nested inside of the specified folder,
+at any depth, and not only its direct sub folders. It returns one unnamed child node per folder, with the folder's
+path relative to the root folder of your backend, and accepts the following optional arguments.
+
+* **[display-hidden]** - Boolean, defaults to false, which hides folders starting with a `.`
+* **[display-system]** - Boolean, defaults to true, and if false hides folders inside of _"/system/"_, _"/misc/"_, _"/data/"_ and _"/config/"_
+
 ### How to use [io.folder.move]
 
 Moves the specified source folder to its specified destination folder.
@@ -114,6 +127,17 @@ io.file.load:/misc/README.md
 ```
 
 **Notice** - If you want to load binary content you should use the **[io.file.load.binary]** override.
+
+### How to use [io.file.load-recursively]
+
+This slot loads the content of all files inside of the specified folder, including all nested folders, as text, and
+takes no arguments besides the folder as its value. It returns one unnamed child node per file, and each of these nodes
+has the following two children.
+
+* **[name]** - Path of the file relative to the root folder of your backend
+* **[content]** - Content of the file as a string, decoded as UTF-8
+
+As with **[io.file.load]**, you should not use this slot on binary files.
 
 ### How to use [io.file.save]
 
@@ -262,6 +286,38 @@ execute-file:/whatever-file.hl
 
 Inside your above _"/whatever-file.hl"_ file you will now have access to the entire **[.args]** node by reference.
 
+#### Executing files from whitelisted code
+
+Both slots obey the rules of **[whitelist]** invocations from magic.lambda, which lets you decide exactly which
+files some partially untrusted code may execute, by pinning the path in the whitelist's **[vocabulary]**.
+
+```
+whitelist
+
+   vocabulary
+      execute-file:/modules/reports/top-customers.hl
+      io.file.load:/modules/reports/top-customers.hl
+
+   .lambda
+
+      // Allowed, since the path is pinned in the vocabulary.
+      execute-file:/modules/reports/top-customers.hl
+
+      // Throws, since no other file is pinned.
+      execute-file:/modules/reports/payroll.hl
+```
+
+Once a file has been admitted this way, the whitelist no longer applies to the statements _inside_ that file,
+exactly as it does inside a dynamic slot created with **[slots.create]**. The file can therefore use slots such
+as **[data.connect]**, which the code that executed it was never allowed to invoke. This is how you give
+untrusted code access to complex business logic, without giving it raw access to the databases, files and
+APIs the logic uses - you write and review the file, and you grant the file, not the slots it invokes. The
+code inside the file is trusted, so it must validate its own arguments, and it must never execute code that
+its caller supplied. Notice that **[io.file.load]** is a separate slot with a separate pin, which you add
+if the caller should be allowed to read the file's source, for instance to learn which arguments it takes.
+See the [Sandbox API generator](https://docs.ainiro.io/dashboard/endpoint-generator/#business-logic-without-raw-access) for a
+complete example, with a wizard that writes these lines for you.
+
 ### How to use [io.file.list]
 
 Lists all files inside of the specified folder. By default hidden files will not be shown, unless
@@ -270,6 +326,15 @@ you pass in **[display-hidden]** and set its value to boolean _"true"_.
 ```
 io.file.list:/misc/
 ```
+
+### How to use [io.file.list-recursively]
+
+This slot works like **[io.file.list]**, except it also returns all files inside of nested folders, at any depth, and
+not only the files directly inside of the specified folder. It returns one unnamed child node per file, with the
+file's path relative to the root folder of your backend, and accepts the following optional arguments.
+
+* **[display-hidden]** - Boolean, defaults to false, which hides files starting with a `.`
+* **[display-system]** - Boolean, defaults to true, and if false hides files inside of _"/system/"_, _"/misc/"_, _"/data/"_ and _"/config/"_
 
 ### How to use [io.file.search]
 
@@ -491,3 +556,44 @@ signaler.Signal(".io.folder.root", node);
 // Retrieving root folder after evaluating slot.
 var rootFolder = node.Get<string>();
 ```
+
+### How to use [io.path.get-folder]
+
+Strips the filename from a path and returns the folder part of it, always ending with a `/`. If the path already
+ends with a `/` it is returned as it is. Below is an example.
+
+```
+io.path.get-folder:/foo/howdy/file.hl
+```
+
+The above returns `/foo/howdy/`, and the same is returned if you pass in `/foo/howdy/` instead.
+
+## Restricting file access with [whitelist]
+
+Every slot in this project verifies its path against the **[whitelist]** vocabulary in scope, if any,
+comparing it segment by segment such that a wildcard is confined to the segment it occurs in.
+
+```
+whitelist
+   vocabulary
+      io.file.load:/etc/*.md
+      io.folder.create:/etc/*/
+   .lambda
+      io.file.load:/etc/readme.md
+```
+
+* __/etc/*__ - Every file directly in the folder, but _not_ in its sub folders
+* __/etc/*.md__ - Every markdown file directly in the folder
+* __/etc/\*/config.json__ - That filename, one folder level below
+
+A folder is pinned with its trailing slash, since a folder ends with a slash by convention in Magic,
+and a folder has no extension - so a pattern such as `/etc/*.md/` throws for a folder slot even though
+the same wildcard is legal as a filename. An asterisk must be either an entire segment or the start of
+the filename, and anything else throws rather than silently matching something unintended.
+
+Notice, the paths a slot touches _besides_ its own value are verified too. **[io.file.copy]** and
+**[io.file.move]** verify their destination, which the vocabulary never sees otherwise. **[io.file.unzip]**
+verifies its destination folder once, and then confines every entry the archive writes to that folder,
+which is what stops an archive escaping it with a `../` in an entry's name.
+
+Read more about **[whitelist]** in the magic.lambda project.
