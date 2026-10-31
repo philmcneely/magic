@@ -1,6 +1,8 @@
 /*
  * Returns the number of endpoints in the system that require no
- * authentication at all - i.e. public endpoints.
+ * authentication at all - i.e. public endpoints. System endpoints are not
+ * counted, since many of them, such as authentication, must be open. Neither
+ * are the MCP and OAuth module endpoints, which must be open by design.
  *
  * Sibling of "count.get.hl", avoiding the ~100KB full endpoint list for
  * something that only wants to display how many endpoints are public.
@@ -14,11 +16,20 @@ auth.ticket.verify:root
 // Contains one empty child per public endpoint found below.
 .result
 
-// Counting endpoints without an [auth] requirement.
+// Counting endpoints without an [auth] requirement, ignoring system endpoints, since many of those must be open, such as authentication.
 endpoints.list
 for-each:x:@endpoints.list/*
    if
-      not-exists:x:@.dp/#/*/auth
+      and
+         not-exists:x:@.dp/#/*/auth
+         not
+            or
+               strings.starts-with:x:@.dp/#/*/path
+                  .:magic/system/
+               strings.starts-with:x:@.dp/#/*/path
+                  .:magic/modules/mcp/
+               strings.starts-with:x:@.dp/#/*/path
+                  .:magic/modules/oauth/
       .lambda
          add:x:@.result
             .

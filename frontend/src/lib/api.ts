@@ -882,7 +882,7 @@ export function countEndpoints() {
   return http.get<{ count: number }>('/magic/system/endpoints/count');
 }
 
-// How many of those endpoints require no authentication at all.
+// How many of those endpoints require no authentication at all, system endpoints excluded.
 export function countPublicEndpoints() {
   return http.get<{ count: number }>('/magic/system/endpoints/count-public');
 }
