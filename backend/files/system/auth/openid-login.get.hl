@@ -37,11 +37,30 @@ execute-file:/system/auth/openid-providers.get.hl
  * Verifying token.
  *
  * Notice, this will throw an exception if token is not valid, or its issuer is not
- * among our registered providers supplied to it above.
+ * among our registered providers supplied to it above. Also notice, the audiences are the
+ * client IDs of those same providers, to refuse id_tokens a provider issued to some other
+ * application.
  */
+.key
+.audiences
+for-each:x:@execute-file/*
+   set-value:x:@.key
+      strings.concat
+         .:"magic:oidc:"
+         strings.to-lower:x:@.dp/#/*/name
+         .:":client-id"
+   config.get:x:@.key
+   if
+      not-null:x:@config.get
+      .lambda
+         unwrap:x:+/*/*
+         add:x:@.audiences
+            .
+               .:x:@config.get
 auth.token.verify
    token:x:@.arguments/*/token
    issuers:x:@execute-file/*/*/issuer
+   audiences:x:@.audiences/*
 
 /*
  * Verifying nonce from token to avoid replay attacks.

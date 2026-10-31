@@ -45,11 +45,22 @@ namespace magic.backend.slots
              */
             var trustedIssuers = input.Children
                 .Where(x => x.Name == "issuer" || x.Name == "issuers")
-                .SelectMany(x => GetIssuers(x))
+                .SelectMany(x => GetValues(x))
                 .Where(x => !string.IsNullOrEmpty(x))
                 .ToList();
             if (trustedIssuers.Count == 0)
                 throw new HyperlambdaException("[auth.token.verify] must be given one or more trusted [issuer] or [issuers] to verify the token against", true, 500);
+
+            /*
+             * Retrieving the audiences our caller expects, if any. Supplying one makes the token
+             * only valid if it was issued to us, since a token issued by the same provider to
+             * another application is otherwise indistinguishable from one issued to us.
+             */
+            var audiences = input.Children
+                .Where(x => x.Name == "audience" || x.Name == "audiences")
+                .SelectMany(x => GetValues(x))
+                .Where(x => !string.IsNullOrEmpty(x))
+                .ToList();
 
             // Reading issuer from token, without trusting it.
             var handler = new JwtSecurityTokenHandler();
@@ -74,11 +85,16 @@ namespace magic.backend.slots
             var signingKeys = discoveryDocument.SigningKeys;
 
             // This will throw an exceptionj if token is not valid.
-            var result = Validate(token, issuer, signingKeys);
+            var result = Validate(token, issuer, audiences, signingKeys);
 
             // House cleaning.
             input.Value = null;
             input.Clear();
+
+            // Refusing emails the provider explicitly declares as unverified, since email is our account key.
+            var verified = result.Claims.FirstOrDefault(x => x.Type == "email_verified")?.Value;
+            if (string.Equals(verified, "false", System.StringComparison.OrdinalIgnoreCase))
+                throw new HyperlambdaException("The email address in the token is not verified by the provider", true, 401);
 
             // Returning email, issuer and name to caller.
             input.Add(new Node("issuer", issuer));
@@ -96,14 +112,14 @@ namespace magic.backend.slots
          */
 
         /*
-         * Returns all issuers carried by the given [issuer]/[issuers] node, supporting
-         * single values, child node lists, and expressions resolving to multiple nodes.
+         * Returns all values carried by the given [issuer]/[issuers]/[audience]/[audiences] node,
+         * supporting single values, child node lists, and expressions resolving to multiple nodes.
          */
-        private static IEnumerable<string> GetIssuers(Node node)
+        private static IEnumerable<string> GetValues(Node node)
         {
             // Expressions are evaluated allowing multiple results, e.g. [issuers:x:@.providers/*/issuer].
             if (node.Value is Expression expression)
-                return expression.Evaluate(node).Select(x => x.GetEx<string>());
+                return expression.Evaluate(node).Select(x => x.Value == null ? null : x.GetEx<string>());
 
             // Lists of issuers given as child nodes.
             if (node.Children.Any())
@@ -116,13 +132,15 @@ namespace magic.backend.slots
         private static JwtSecurityToken Validate(
             string token, 
             string issuer, 
+            ICollection<string> audiences,
             ICollection<SecurityKey> signingKeys)
         {
             var validationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
                 ValidIssuer = issuer,
-                ValidateAudience = false,
+                ValidateAudience = audiences.Count > 0,
+                ValidAudiences = audiences,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKeys = signingKeys,
                 ValidateLifetime = true
