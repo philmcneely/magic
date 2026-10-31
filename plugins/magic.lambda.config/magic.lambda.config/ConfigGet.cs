@@ -47,13 +47,18 @@ namespace magic.lambda.config
         /// <returns>Awaitable task</returns>
         public async Task SignalAsync(ISignaler signaler, Node input)
         {
+            /*
+             * Resolving key before evaluating children, since this is the value the whitelist
+             * approved, and no child should be able to change it afterwards.
+             */
+            var key = input.GetEx<string>() ??
+                throw new HyperlambdaException("No value provided to [config.get]");
+
             // Evaluating children as lambda.
             await signaler.SignalAsync("eval", input, skipWhitelist: true);
 
             // Returning value to caller, making sure we resort to default value if no config value is found.
-            input.Value = _configuration[
-                input.GetEx<string>() ??
-                throw new HyperlambdaException("No value provided to [config.get]")] ??
+            input.Value = _configuration[key] ??
                 input.Children.FirstOrDefault()?.GetEx<string>();
 
             // House cleaning.
