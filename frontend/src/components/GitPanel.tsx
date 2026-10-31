@@ -15,7 +15,7 @@ import {
 } from '../lib/api';
 
 // Status codes of a file a merge could not combine, which leave the merge waiting for the user.
-const UNMERGED = ['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU'];
+const UNMERGED = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']);
 
 /*
  * One porcelain status line is "XY path", where XY is the two-character status
@@ -164,7 +164,7 @@ export default function GitPanel(props: Readonly<{
    */
   const hasUpstream = branchLine.includes('...');
   const nothingToPush = hasUpstream && !branchLine.includes('[ahead');
-  const merging = changes.some(line => UNMERGED.includes(line.substring(0, 2)));
+  const merging = changes.some(line => UNMERGED.has(line.substring(0, 2)));
   const currentBranch = unborn
     ? branchLine.substring('No commits yet on '.length)
     : branchLine.split('...')[0].split(' ')[0];
