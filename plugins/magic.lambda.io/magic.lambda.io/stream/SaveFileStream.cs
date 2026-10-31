@@ -63,6 +63,12 @@ namespace magic.lambda.io.stream
 
         async Task<(string Destination, Stream Stream, bool Overwrite)> GetArguments(ISignaler signaler, Node input)
         {
+            /*
+             * Resolving destination before evaluating children, since this is the value the
+             * whitelist approved, and no child should be able to change it afterwards.
+             */
+            var destination = _rootResolver.AbsolutePath(input.GetEx<string>());
+
             // Checking if caller wants to overwrite existing file.
             var overwrite = true;
             var overwriteNode = input.Children.FirstOrDefault(x => x.Name == "overwrite");
@@ -76,7 +82,7 @@ namespace magic.lambda.io.stream
             await signaler.SignalAsync("eval", input, skipWhitelist: true);
 
             // Returning results to caller.
-            return (_rootResolver.AbsolutePath(input.GetEx<string>()), input.Children.First().GetEx<Stream>(), overwrite);
+            return (destination, input.Children.First().GetEx<Stream>(), overwrite);
         }
 
         #endregion

@@ -73,6 +73,12 @@ namespace magic.lambda.io.file
         /// <returns>An awaitable task.</returns>
         public async Task SignalAsync(ISignaler signaler, Node input)
         {
+            /*
+             * Resolving destination before evaluating children, since this is the value the
+             * whitelist approved, and no child should be able to change it afterwards.
+             */
+            var path = _rootResolver.AbsolutePath(input.GetEx<string>());
+
             // Making sure we evaluate any children, to make sure any signals wanting to retrieve our source is evaluated.
             await signaler.SignalAsync("eval", input, skipWhitelist: true);
 
@@ -82,31 +88,17 @@ namespace magic.lambda.io.file
                 // Text content.
                 case "save-file":
                 case "io.file.save":
-                    var strArgs = GetArgs<string>(input);
-                    await _service.SaveAsync(strArgs.Path, strArgs.Content);
+                    await _service.SaveAsync(path, input.Children.First().GetEx<string>());
                     break;
 
                 // Binary content.
                 case "io.file.save.binary":
-                    var byteArgs = GetArgs<byte[]>(input);
-                    await _service.SaveAsync(byteArgs.Path, byteArgs.Content);
+                    await _service.SaveAsync(path, input.Children.First().GetEx<byte[]>());
                     break;
 
                 default:
                     throw new HyperlambdaException("You shouldn't be here ...??");
             }
         }
-
-        #region [ -- Private helper methods -- ]
-
-        /*
-         * Retrieves the arguments as supplied to slot invocation.
-         */
-        (string Path, T Content) GetArgs<T>(Node input)
-        {
-            return (_rootResolver.AbsolutePath(input.GetEx<string>()), input.Children.First().GetEx<T>());
-        }
-
-        #endregion
     }
 }

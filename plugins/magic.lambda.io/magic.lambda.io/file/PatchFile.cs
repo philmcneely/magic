@@ -64,15 +64,19 @@ namespace magic.lambda.io.file
         /// <returns>An awaitable task.</returns>
         public async Task SignalAsync(ISignaler signaler, Node input)
         {
+            /*
+             * Resolving file path before evaluating children, since this is the value the
+             * whitelist approved, and no child should be able to change it afterwards.
+             */
+            var rawPath = input.GetEx<string>();
+            if (string.IsNullOrWhiteSpace(rawPath))
+                throw new HyperlambdaException("Missing file path.");
+            var path = _rootResolver.AbsolutePath(rawPath);
+
             // Making sure we evaluate any children, to make sure any signals wanting to retrieve our source is evaluated.
             await signaler.SignalAsync("eval", input, skipWhitelist: true);
 
             // Retrieving arguments.
-            var rawPath = input.GetEx<string>();
-            if (string.IsNullOrWhiteSpace(rawPath))
-                throw new HyperlambdaException("Missing file path.");
-
-            var path = _rootResolver.AbsolutePath(rawPath);
             var patchNode = input.Children.FirstOrDefault();
             if (patchNode == null)
                 throw new HyperlambdaException("Missing patch.");
