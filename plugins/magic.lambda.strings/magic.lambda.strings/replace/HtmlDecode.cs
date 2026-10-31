@@ -10,7 +10,7 @@ using magic.signals.contracts;
 namespace magic.lambda.strings.replace
 {
     /// <summary>
-    /// [strings.url-decode] slot that URL decodes the specified string.
+    /// [strings.html-decode] slot that HTML decodes the specified string.
     /// </summary>
     [Slot(
         Name = "strings.html-decode",
