@@ -10,8 +10,12 @@ import { ChevronIcon, UndoIcon } from './Icons';
 import { showToast } from '../lib/toast';
 import {
   gitBranches, gitCheckout, gitClone, gitCommit, gitDiff, gitFetch, gitGithubCreate,
-  gitInit, gitPull, gitPush, gitRemoteAdd, gitRestore, gitStatus, listFiles, listFolders, loadFile,
+  gitInit, gitLog, gitMerge, gitMergeAbort, gitPull, gitPush, gitRemoteAdd, gitRestore, gitStatus,
+  listFiles, listFolders, loadFile,
 } from '../lib/api';
+
+// Status codes of a file a merge could not combine, which leave the merge waiting for the user.
+const UNMERGED = ['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU'];
 
 /*
  * One porcelain status line is "XY path", where XY is the two-character status
@@ -83,6 +87,8 @@ export default function GitPanel(props: Readonly<{
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [diffs, setDiffs] = useState<Record<string, string>>({});
   const [branches, setBranches] = useState<string[]>([]);
+  // The commit list when shown, as the title describing it and its tab separated lines.
+  const [history, setHistory] = useState<{ title: string; lines: string[] } | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   // Whether the folder has any contents — git refuses cloning into a non-empty folder.
@@ -103,6 +109,7 @@ export default function GitPanel(props: Readonly<{
       // Whatever was fetched describes the old working tree.
       setOpen({});
       setDiffs({});
+      setHistory(null);
       setBranches(await gitBranches(props.path) ?? []);
       setMode('repo');
     } catch {
@@ -157,6 +164,7 @@ export default function GitPanel(props: Readonly<{
    */
   const hasUpstream = branchLine.includes('...');
   const nothingToPush = hasUpstream && !branchLine.includes('[ahead');
+  const merging = changes.some(line => UNMERGED.includes(line.substring(0, 2)));
   const currentBranch = unborn
     ? branchLine.substring('No commits yet on '.length)
     : branchLine.split('...')[0].split(' ')[0];
@@ -219,6 +227,53 @@ export default function GitPanel(props: Readonly<{
       return;
     }
     await run(() => gitCheckout(props.path, name, true), 'Created and checked out ' + name, true);
+  }
+
+  async function mergeBranch() {
+    const others = branchOptions.filter(branch => branch !== currentBranch);
+    const name = await prompt({
+      title: 'Merge branch',
+      message: 'Merges into ' + currentBranch + '. Branches: ' + others.join(', '),
+      label: 'Branch to merge',
+    });
+    if (!name) {
+      return;
+    }
+    await run(() => gitMerge(props.path, name), 'Merged ' + name + ' into ' + currentBranch, true);
+  }
+
+  async function abortMerge() {
+    const ok = await confirm({
+      title: 'Abort merge',
+      message: 'Abandon the merge and put ' + props.path + ' back as it was before it started?',
+      confirmText: 'Abort merge',
+      danger: true,
+    });
+    if (!ok) {
+      return;
+    }
+    await run(() => gitMergeAbort(props.path), 'Merge aborted', true);
+  }
+
+  /*
+   * Shows the commits that differ from the remote when the branch is out of sync with it, which
+   * is what explains an "ahead 1, behind 2", and otherwise the latest commits of the branch.
+   */
+  async function toggleHistory() {
+    if (history) {
+      setHistory(null);
+      return;
+    }
+    try {
+      const diverged = hasUpstream && /\[(ahead|behind)/.test(branchLine);
+      const text = await gitLog(props.path, diverged ? 'HEAD...@{u}' : undefined);
+      setHistory({
+        title: diverged ? 'Not in sync with the remote — < only here, > only on the remote' : 'Latest commits',
+        lines: text.split('\n').filter(Boolean),
+      });
+    } catch (err: any) {
+      showToast(err.message, true, err.logId);
+    }
   }
 
   async function clone() {
@@ -297,7 +352,20 @@ export default function GitPanel(props: Readonly<{
             <button className="btn btn-secondary btn-small" disabled={busy} onClick={newBranch}>
               New branch
             </button>
+            <button
+              className="btn btn-secondary btn-small"
+              disabled={busy || unborn || branchOptions.length < 2}
+              title="Merges another branch into this one"
+              onClick={mergeBranch}>
+              Merge
+            </button>
             <span style={{ flex: 1 }} />
+            <button
+              className="btn btn-secondary btn-small"
+              disabled={busy || unborn}
+              onClick={toggleHistory}>
+              {history ? 'Hide history' : 'History'}
+            </button>
             <button
               className="btn btn-secondary btn-small"
               disabled={busy || unborn}
@@ -318,6 +386,31 @@ export default function GitPanel(props: Readonly<{
               Push
             </button>
           </div>
+          {history && (
+            <>
+              <p className="meta">{history.title}</p>
+              <div className="git-changes mono">
+                {history.lines.length === 0 && <span className="meta">No commits</span>}
+                {history.lines.map(line => {
+                  const [side, hash, author, age, ...subject] = line.split('\t');
+                  return (
+                    <div key={hash + side} className="git-change-line">
+                      <span className="git-status">{side}</span>
+                      <span>{hash} {subject.join('\t')} — {author}, {age}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          {merging && (
+            <p>
+              A merge stopped on conflicts. Resolve the files marked in the list below and commit, or{' '}
+              <button className="btn btn-secondary btn-small" disabled={busy} onClick={abortMerge}>
+                Abort merge
+              </button>
+            </p>
+          )}
           {changes.length === 0
             ? <p>Working tree clean.</p>
             : (

@@ -89,6 +89,33 @@ namespace magic.lambda.git
             return new[] { "-c", header };
         }
 
+        /*
+         * Author identity injected per invocation, keeping the plugin free of filesystem git config.
+         * Needed by every slot that can create a commit, which includes a pull or merge that merges.
+         */
+        public static List<string> WithIdentity(IEnumerable<string> extraArgs, string name, string email)
+        {
+            var result = new List<string>(extraArgs);
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                result.Add("-c");
+                result.Add($"user.name={name}");
+            }
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                result.Add("-c");
+                result.Add($"user.email={email}");
+            }
+            return result;
+        }
+
+        // Values that git would read as an option rather than as a branch or revision range.
+        public static void EnsureNotOption(string value, string name)
+        {
+            if (value.StartsWith('-'))
+                throw new HyperlambdaException($"Argument '{name}' cannot start with '-'");
+        }
+
         public static async Task<string> RunGitAsync(string workingDirectory, IEnumerable<string> args, IEnumerable<string> extraArgs = null)
         {
             var startInfo = new ProcessStartInfo("git")

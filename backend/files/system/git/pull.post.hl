@@ -35,11 +35,16 @@ if
    .lambda
       throw:"Git repos must be in folders inside of either '/etc/' or '/modules/'"
 
+// Reading the commit identity of the authenticated user, since a merging pull creates a commit.
+io.file.execute:/system/git/identity.hl
+
 // Parametrising slot.
 add:x:./*/git.pull
    get-nodes:x:@.arguments/*/remote
    get-nodes:x:@.arguments/*/branch
    get-nodes:x:@.arguments/*/merge
+   get-nodes:x:@io.file.execute/*/name
+   get-nodes:x:@io.file.execute/*/email
 
 // Invoking slot.
 git.pull:x:@.arguments/*/path

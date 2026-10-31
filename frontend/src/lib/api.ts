@@ -1969,6 +1969,22 @@ export function gitCheckout(path: string, branch: string, create = false) {
   return http.post<MagicResponse>('/magic/system/git/checkout', { path, branch, create });
 }
 
+// Merges a branch into the current one, or aborts a merge that stopped on conflicts.
+export function gitMerge(path: string, branch: string) {
+  return http.post<MagicResponse>('/magic/system/git/merge', { path, branch });
+}
+
+export function gitMergeAbort(path: string) {
+  return http.post<MagicResponse>('/magic/system/git/merge', { path, abort: true });
+}
+
+// Commits as tab separated lines of side, hash, author, age and subject. With a
+// range such as 'HEAD...@{u}' only the commits that differ are listed.
+export function gitLog(path: string, range?: string) {
+  return http.getText(
+    '/magic/system/git/log?path=' + encodeURIComponent(path) + (range ? '&range=' + encodeURIComponent(range) : ''));
+}
+
 export function gitInit(path: string) {
   return http.post<MagicResponse>('/magic/system/git/init', { path });
 }

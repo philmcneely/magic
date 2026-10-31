@@ -1,0 +1,46 @@
+/*
+ * Returns the commits of a Git repository, one per line as side, hash, author,
+ * age and subject separated by tabs. Without a range the commits of the current
+ * branch are returned, with a range such as 'HEAD...@{u}' only the commits that
+ * differ, where side is '<' for those only on the left and '>' for those only
+ * on the right of the range.
+ */
+.arguments
+
+   // Mandatory folder to where Git repo is locally on disk.
+   path:string
+
+   // Optional revision range.
+   range:string
+
+   // Optional maximum number of commits, defaults to 30.
+   limit:int
+
+// Ensuring user is root.
+auth.ticket.verify:root
+
+// Sanity checking invocation.
+validators.mandatory:x:@.arguments/*/path
+
+// Sanity checking invocation.
+if
+   and
+      not
+         strings.starts-with:x:@.arguments/*/path
+            .:/modules/
+      not
+         strings.starts-with:x:@.arguments/*/path
+            .:/etc/
+   .lambda
+      throw:"Git repos must be in folders inside of either '/etc/' or '/modules/'"
+
+// Parametrising slot.
+add:x:./*/git.log
+   get-nodes:x:@.arguments/*/range
+   get-nodes:x:@.arguments/*/limit
+
+// Invoking slot.
+git.log:x:@.arguments/*/path
+
+// Returning log to caller.
+return:x:@git.log

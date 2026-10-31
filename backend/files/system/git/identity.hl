@@ -1,0 +1,41 @@
+/*
+ * Returns the name and email of the authenticated user from the users_extra
+ * table, as the commit identity of git operations that can create a commit.
+ * Throws if either is missing.
+ */
+
+// Reading the user's name and email from the users_extra table.
+auth.ticket.get
+.result
+   name
+   email
+data.connect:magic
+   data.read
+      table:users_extra
+      columns
+         type
+         value
+      where
+         and
+            user.eq:x:@auth.ticket.get
+   for-each:x:@data.read/*
+      switch:x:@.dp/#/*/type
+         case:name
+            set-value:x:@.result/*/name
+               get-value:x:@.dp/#/*/value
+         case:email
+            set-value:x:@.result/*/email
+               get-value:x:@.dp/#/*/value
+
+// Commit identity is mandatory.
+if
+   or
+      null:x:@.result/*/name
+      null:x:@.result/*/email
+   .lambda
+      throw:Set your name and email in your profile before committing
+         public:bool:true
+         status:int:400
+
+// Returning the identity to caller.
+return-nodes:x:@.result/*

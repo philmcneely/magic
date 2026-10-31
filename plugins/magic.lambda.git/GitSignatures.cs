@@ -73,6 +73,28 @@ namespace magic.lambda.git.signatures
             Option("rebase", "bool", "Use rebase while pulling", defaultValue: "false"),
             Option("merge", "bool", "Merge while pulling, which is what lets a diverged branch be pulled", defaultValue: "false"),
             Option("ff-only", "bool", "Only allow fast-forward pulls", defaultValue: "false"),
+            Option("name", "string", "Author name of the merge commit a merging pull creates"),
+            Option("email", "string", "Author email of the merge commit a merging pull creates"),
+        };
+    }
+
+    public class GitMergeSignature : GitSignature
+    {
+        public override IEnumerable<SlotChild> Children => new[]
+        {
+            Option("branch", "string", "Branch to merge into the current branch, required unless [abort] is true", kind: "git-branch"),
+            Option("abort", "bool", "Abort a merge that stopped on conflicts", defaultValue: "false"),
+            Option("name", "string", "Author name of the merge commit"),
+            Option("email", "string", "Author email of the merge commit"),
+        };
+    }
+
+    public class GitLogSignature : GitSignature
+    {
+        public override IEnumerable<SlotChild> Children => new[]
+        {
+            Option("range", "string", "Revision range, such as 'HEAD...@{u}' for the commits that differ from the upstream; omitted lists the current branch"),
+            Option("limit", "int", "Maximum number of commits to return", defaultValue: "30"),
         };
     }
 

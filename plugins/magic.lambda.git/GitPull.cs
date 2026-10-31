@@ -58,12 +58,12 @@ namespace magic.lambda.git
             input.Value = await GitSlotHelpers.RunGitAsync(
                 repoPath,
                 gitArgs,
-                GitSlotHelpers.GetGitHubAuthArgs(_configuration));
+                GitSlotHelpers.WithIdentity(GitSlotHelpers.GetGitHubAuthArgs(_configuration), args.Name, args.Email));
         }
 
         #region [ -- Private helper methods -- ]
 
-        static (string Path, string Remote, string Branch, bool Rebase, bool Merge, bool FfOnly) GetArgs(Node input)
+        static (string Path, string Remote, string Branch, bool Rebase, bool Merge, bool FfOnly, string Name, string Email) GetArgs(Node input)
         {
             var path = GitSlotHelpers.GetRequiredPrimaryValue(input);
             var remote = input.Children.FirstOrDefault(x => x.Name == "remote")?.GetEx<string>() ?? "origin";
@@ -71,11 +71,13 @@ namespace magic.lambda.git
             var rebase = input.Children.FirstOrDefault(x => x.Name == "rebase")?.GetEx<bool>() ?? false;
             var merge = input.Children.FirstOrDefault(x => x.Name == "merge")?.GetEx<bool>() ?? false;
             var ffOnly = input.Children.FirstOrDefault(x => x.Name == "ff-only")?.GetEx<bool>() ?? false;
+            var name = GitSlotHelpers.GetOptionalChild(input, "name");
+            var email = GitSlotHelpers.GetOptionalChild(input, "email");
 
             input.Clear();
             input.Value = null;
 
-            return (path, remote, branch, rebase, merge, ffOnly);
+            return (path, remote, branch, rebase, merge, ffOnly, name, email);
         }
 
         #endregion

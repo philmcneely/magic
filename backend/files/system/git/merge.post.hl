@@ -1,0 +1,49 @@
+/*
+ * Merges a branch into the current branch of a Git repository, or aborts a
+ * merge that stopped on conflicts.
+ */
+.arguments
+
+   // Mandatory folder to where Git repo is locally on disk.
+   path:string
+
+   // Branch to merge into the current branch, mandatory unless abort is true.
+   branch:string
+
+   // Optional boolean indicating whether to abort a merge that stopped on conflicts.
+   abort:bool
+
+// Ensuring user is root.
+auth.ticket.verify:root
+
+// Sanity checking invocation.
+validators.mandatory:x:@.arguments/*/path
+
+// Sanity checking invocation.
+if
+   and
+      not
+         strings.starts-with:x:@.arguments/*/path
+            .:/modules/
+      not
+         strings.starts-with:x:@.arguments/*/path
+            .:/etc/
+   .lambda
+      throw:"Git repos must be in folders inside of either '/etc/' or '/modules/'"
+
+// Reading the commit identity of the authenticated user, since a merge creates a commit.
+io.file.execute:/system/git/identity.hl
+
+// Parametrising slot.
+add:x:./*/git.merge
+   get-nodes:x:@.arguments/*/branch
+   get-nodes:x:@.arguments/*/abort
+   get-nodes:x:@io.file.execute/*/name
+   get-nodes:x:@io.file.execute/*/email
+
+// Invoking slot.
+git.merge:x:@.arguments/*/path
+
+// Returning result to caller.
+yield
+   result:x:@git.merge

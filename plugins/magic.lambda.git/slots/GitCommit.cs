@@ -3,7 +3,6 @@
  */
 
 using System.Threading.Tasks;
-using System.Collections.Generic;
 using magic.node;
 using magic.node.contracts;
 using magic.node.extensions;
@@ -53,23 +52,10 @@ namespace magic.lambda.git
             if (args.Amend)
                 gitArgs.Add("--amend");
 
-            // Author identity injected per invocation, keeping the plugin free of filesystem git config.
-            var extraArgs = new List<string>(GitSlotHelpers.GetGitHubAuthArgs(_configuration));
-            if (!string.IsNullOrWhiteSpace(args.Name))
-            {
-                extraArgs.Add("-c");
-                extraArgs.Add($"user.name={args.Name}");
-            }
-            if (!string.IsNullOrWhiteSpace(args.Email))
-            {
-                extraArgs.Add("-c");
-                extraArgs.Add($"user.email={args.Email}");
-            }
-
             input.Value = await GitSlotHelpers.RunGitAsync(
                 repoPath,
                 gitArgs,
-                extraArgs);
+                GitSlotHelpers.WithIdentity(GitSlotHelpers.GetGitHubAuthArgs(_configuration), args.Name, args.Email));
         }
 
         #region [ -- Private helper methods -- ]
